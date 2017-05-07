@@ -16,7 +16,7 @@
 # Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include the config
--include ../../.config
+-include ../../.config ../../../oscar/.config
 
 ifeq '$(CONFIG_PRIVATE_FRAMEWORK)' 'y'
 CONFIG_CC_FRAMEWORK_PATH := ../../oscar
@@ -42,18 +42,31 @@ CC_host_ := gcc $(CFLAGS) -fgnu89-inline -DOSC_HOST
 CC_host := $(CC_host_) -O2
 CC_host_dbg := $(CC_host_) -g
 
-# Cross-Compiler executables and flags.
-CC_target_ := bfin-uclinux-gcc $(CFLAGS) -DOSC_TARGET
-CC_target := $(CC_target_) -O2
-CC_target_dbg := $(CC_target_) -ggdb3
+ifeq '$(CONFIG_BOARD)' 'raspi-cam'
+  CC_target_ := arm-linux-gnueabihf-gcc $(CFLAGS) -DOSC_HOST
+  CC_target := $(CC_target_) -O2
+  CC_target_dbg := $(CC_target_) -g
+else
+  CC_target_ := bfin-uclinux-gcc $(CFLAGS) -DOSC_TARGET
+  CC_target := $(CC_target_) -O2
+  CC_target_dbg := $(CC_target_) -ggdb3
+endif
 
 # Assembler for the host and the target.
 AS_host := as
-AS_target := bfin-uclinux-as
+ifeq '$(CONFIG_BOARD)' 'raspi-cam'
+  AS_target := arm-linux-gnueabihf-as
+else
+  AS_target := bfin-uclinux-as
+endif
 
 # Executable to create the static library
 AR_host := ar -rcs
-AR_target := bfin-uclinux-ar -rcs
+ifeq '$(CONFIG_BOARD)' 'raspi-cam'
+  AR_target := arm-linux-gnueabihf-ar -rcs
+else
+  AR_target := bfin-uclinux-ar -rcs
+endif
 
 MODULE := $(shell basename $(shell pwd))
 
@@ -88,8 +101,11 @@ build/%_$(1).o: %.c $(filter-out %.d, $(MAKEFILE_LIST))
 	$$(call firstvar, CC_$(1)) -MD $$< -o $$@
 	@ grep -oE '[^ \\]+' < $$(@:.o=.d) | sed -r '/:$$$$/d; s|^.*$$$$|$$@: \0\n\0:|' > $$(@:.o=.d~) && mv -f $$(@:.o=.d){~,}
 build/%_$(1).o: %.asm $(filter-out %.d, $(MAKEFILE_LIST))
+ifeq '$(CONFIG_BOARD)' 'raspi-cam'
+else
 	@ mkdir -p $$(dir $$@)
 	$$(call firstvar, AS_$(1)) $$< -o $$@
+endif
 endef
 $(foreach i, $(MODES), $(eval $(call build_rules,$(i))))
 
